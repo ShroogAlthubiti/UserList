@@ -10,7 +10,7 @@ public class AppDatabaseSingleton {
     public static synchronized AppDatabase getInstance(Context context) {
         if (instance == null) {
             instance = Room.databaseBuilder(context.getApplicationContext(),
-                    AppDatabase.class, "UserListDB")
+                    AppDatabase.class, "UsersDB")
                     .fallbackToDestructiveMigration()
                     .build();
         }

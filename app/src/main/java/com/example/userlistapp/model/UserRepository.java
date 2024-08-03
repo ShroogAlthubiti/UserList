@@ -1,11 +1,7 @@
 package com.example.userlistapp.model;
 
 import static com.example.userlistapp.model.CryptoUtils.encrypt;
-
-import android.os.Build;
 import android.util.Log;
-
-import androidx.annotation.RequiresApi;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import com.example.userlistapp.model.api.ApiResponse;
@@ -14,16 +10,9 @@ import com.example.userlistapp.model.api.RetrofitClient;
 import com.example.userlistapp.model.data.User;
 import com.example.userlistapp.model.data.UserDao;
 import com.example.userlistapp.model.data.UserEntity;
-
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -40,26 +29,11 @@ public class UserRepository {
         this.executorService = Executors.newSingleThreadExecutor();
 
     }
-    private SecretKey generateKey() {
-        try {
-            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-            keyGen.init(128);
-            return keyGen.generateKey();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
+
 
     public LiveData<List<User>> getUsers() {
-
         MutableLiveData<List<User>> data = new MutableLiveData<>();
-        executorService.execute(() -> {
-            if (userDao.getUserCount() == 0) {
-                fetchUsersFromApi(data);
-            } else {
-                loadUsersFromDatabase(data);
-            }
-        });
+        fetchUsersFromApi(data);
         return data;
     }
 
@@ -69,8 +43,11 @@ public class UserRepository {
             public void onResponse(Call<ApiResponse<List<User>>> call, Response<ApiResponse<List<User>>> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     List<User> users = response.body().getData();
-                    data.setValue(users);
+                    data.postValue(users);
                     saveUsersToDatabase(users);
+                    Log.d("UserRepository", "Fetched " + users.size() + " users from API");
+                } else {
+                    Log.e("UserRepository", "Response not successful: " + response.code() + " " + response.message());
                 }
             }
 
@@ -81,7 +58,8 @@ public class UserRepository {
         });
     }
 
-private void saveUsersToDatabase(List<User> users) {
+
+    private void saveUsersToDatabase(List<User> users) {
     executorService.execute(() -> {
         for (User user : users) {
             try {
@@ -104,28 +82,7 @@ private void saveUsersToDatabase(List<User> users) {
     });
 }
 
-private void loadUsersFromDatabase(MutableLiveData<List<User>> data) {
-    executorService.execute(() -> {
-        List<UserEntity> encryptedUsers = userDao.getAllUsers();
-        List<User> decryptedUsers = new ArrayList<>();
-        for (UserEntity user : encryptedUsers) {
-            try {
-                String decryptedName = CryptoUtils.decrypt(user.getName());
 
-                String decryptedEmail = CryptoUtils.decrypt(user.getEmail());
-                String decryptedGender = CryptoUtils.decrypt(user.getGender());
-                String decryptedStatus = CryptoUtils.decrypt(user.getStatus());
-                User decryptedUser = new User(decryptedName, decryptedEmail, decryptedGender, decryptedStatus);
-                decryptedUsers.add(decryptedUser);
-                Log.d("UserRepository", "User decrypted from database: " + decryptedUser.getName());
-            } catch (Exception e) {
-                Log.e("Errordecrypting", "Error decrypting user from database: ", e);
-            }
-        }
-        data.postValue(decryptedUsers);
-        Log.d("UserRepository", "Data loaded from database and set to LiveData. Number of users: " + decryptedUsers.size());
-    });
-}
     }
 
 
